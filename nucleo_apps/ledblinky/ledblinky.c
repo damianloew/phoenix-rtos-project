@@ -49,7 +49,13 @@ static int ledblinky_blink(unsigned char ledNr, unsigned char blinksCount)
 int main(int argc, char **argv)
 {
 	int ret;
+	int *d;
+	int *d1;
 
+	d1= sizeof(unsigned int);
+	d = 0;
+
+	// printf("d = %d d1 = %d\n", *d, *d1);
 	if (argc != 2) {
 		fprintf(stderr, "Please specify nr of led in second argument (from 1 to 3)\n");
 		return 1;
@@ -60,6 +66,6 @@ int main(int argc, char **argv)
 			return ret;
 		}
 	}
-
+	// printf("d = %d d1 = %d\n", *d, *d1);
 	return 0;
 }
