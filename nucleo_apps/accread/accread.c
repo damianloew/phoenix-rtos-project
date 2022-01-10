@@ -5,17 +5,27 @@
  */
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
+#include <termios.h>
 #include <unistd.h>
 #include <stm32l4-multi.h>
 #include <libmulti/libspi.h>
 #include <sys/msg.h>
+#include <sys/threads.h>
 #include <sys/ioctl.h>
 #include "../gpiocontrol/gpiocontrol.h"
 
 
+volatile unsigned int flagQuit;
 static msg_t _msg;
+static unsigned char ibuff[60];
+static unsigned char obuff[10] = { 0xAC, 0x38 };
+static bool isRead;
+static unsigned int read_samples;
+handle_t lock;
 
 
 enum modes { notcpolnotcpha = 0,
@@ -36,6 +46,71 @@ enum states { disable = 0,
 	enable } state;
 
 libspi_ctx_t spi;
+
+
+/* Enables/disables canon mode and echo */
+static void accread_switchmode(int canon)
+{
+	struct termios state;
+
+	tcgetattr(STDIN_FILENO, &state);
+	if (canon) {
+		state.c_lflag |= ICANON;
+		state.c_lflag |= ECHO;
+	}
+	else {
+		state.c_lflag &= ~ICANON;
+		state.c_lflag &= ~ECHO;
+		state.c_cc[VMIN] = 1;
+	}
+	tcsetattr(STDIN_FILENO, TCSANOW, &state);
+}
+
+
+static void accread_getKey(void *arg)
+{
+	char ch;
+	while ((flagQuit != 1) && (ch = getchar())) {
+		mutexLock(lock);
+		switch (ch) {
+			case 'q':
+			case 3:
+				flagQuit = 1;
+				break;
+			default:
+				break;
+		}
+		mutexUnlock(lock);
+	}
+
+	endthread();
+}
+
+
+static void accread_readData(void *arg)
+{
+	while (flagQuit != 1) {
+		isRead = 0;
+		/* store max last 10 samples */
+		for (int i = 0; (i < 56 && !isRead); i += 6) {
+			mutexLock(lock);
+			gpiocontrol_setPin(&_msg, gpioa, 4, 0);
+			libspi_transaction(&spi, spi_dir_read, 0xA8, 0, spi_cmd, &ibuff[i], NULL, 2);
+			gpiocontrol_setPin(&_msg, gpioa, 4, 1);
+			gpiocontrol_setPin(&_msg, gpioa, 4, 0);
+			libspi_transaction(&spi, spi_dir_read, 0xAA, 0, spi_cmd, &ibuff[i + 2], NULL, 2);
+			gpiocontrol_setPin(&_msg, gpioa, 4, 1);
+			gpiocontrol_setPin(&_msg, gpioa, 4, 0);
+			libspi_transaction(&spi, spi_dir_read, 0xAC, 0, spi_cmd, &ibuff[i + 4], NULL, 2);
+			gpiocontrol_setPin(&_msg, gpioa, 4, 1);
+			read_samples = i / 6;
+			mutexUnlock(lock);
+			usleep(100000);
+		}
+	}
+
+	endthread();
+}
 
 
 static int accread_setSpiLine(char *name)
@@ -61,16 +136,34 @@ static int accread_setSpiLine(char *name)
 }
 
 
+static void acccread_accInit(void)
+{
+	/* the first test transaction */
+	gpiocontrol_setPin(&_msg, gpioa, 4, 0);
+	libspi_transaction(&spi, spi_dir_read, 0xff, 0, spi_cmd, &ibuff[0], NULL, 1);
+	gpiocontrol_setPin(&_msg, gpioa, 4, 1);
+
+	/* set 6 kHz baud rate for the accelerometer */
+	gpiocontrol_setPin(&_msg, gpioa, 4, 0);
+	libspi_transaction(&spi, spi_dir_write, 0x10, 0, spi_cmd, NULL, &obuff[0], 1);
+	gpiocontrol_setPin(&_msg, gpioa, 4, 1);
+
+	/* enable all axes for the accelerometer */
+	gpiocontrol_setPin(&_msg, gpioa, 4, 0);
+	libspi_transaction(&spi, spi_dir_write, 0x18, 0, spi_cmd, NULL, &obuff[1], 1);
+	gpiocontrol_setPin(&_msg, gpioa, 4, 1);
+}
+
+
 int main(int argc, char **argv)
 {
-	int ret, i;
-	unsigned char ibuff[10];
-	unsigned char obuff[10] = { 0xAC, 0x38 };
+	char *readingDataStack, *gettingKeyStack;
+	int ret, i, j, var;
+	static const unsigned int stacksz = 256;
 	short xdata, ydata, zdata;
-	int a;
-	a = -16000;
+
 	if (argc < 2) {
-		fprintf(stderr, "Please specify the number of address reads\n");
+		fprintf(stderr, "Please specify the number of last read samples to print\n");
 		return 1;
 	}
 	else {
@@ -89,38 +182,38 @@ int main(int argc, char **argv)
 			return ret;
 		}
 
-		/* the first test transaction */
-		gpiocontrol_setPin(&_msg, gpioa, 4, 0);
-		libspi_transaction(&spi, spi_dir_read, 0xff, 0, spi_cmd, &ibuff[0], NULL, 1);
-		gpiocontrol_setPin(&_msg, gpioa, 4, 1);
+		if ((readingDataStack = (char *)malloc(stacksz)) == NULL)
+			return 1;
 
-		/* set 6 kHz baud rate for the accelerometer */
-		gpiocontrol_setPin(&_msg, gpioa, 4, 0);
-		libspi_transaction(&spi, spi_dir_write, 0x10, 0, spi_cmd, NULL, &obuff[0], 1);
-		gpiocontrol_setPin(&_msg, gpioa, 4, 1);
+		if ((gettingKeyStack = (char *)malloc(128)) == NULL)
+			return 1;
 
-		/* enable all axes for the accelerometer */
-		gpiocontrol_setPin(&_msg, gpioa, 4, 0);
-		libspi_transaction(&spi, spi_dir_write, 0x18, 0, spi_cmd, NULL, &obuff[1], 1);
-		gpiocontrol_setPin(&_msg, gpioa, 4, 1);
+		acccread_accInit();
+		accread_switchmode(0);
 
-		for (i = 0; i < atoi(argv[1]); i++) {
-			gpiocontrol_setPin(&_msg, gpioa, 4, 0);
-			libspi_transaction(&spi, spi_dir_read, 0xA8, 0, spi_cmd, &ibuff[0], NULL, 2);
-			gpiocontrol_setPin(&_msg, gpioa, 4, 1);
-			gpiocontrol_setPin(&_msg, gpioa, 4, 0);
-			libspi_transaction(&spi, spi_dir_read, 0xAA, 0, spi_cmd, &ibuff[2], NULL, 2);
-			gpiocontrol_setPin(&_msg, gpioa, 4, 1);
-			gpiocontrol_setPin(&_msg, gpioa, 4, 0);
-			libspi_transaction(&spi, spi_dir_read, 0xAC, 0, spi_cmd, &ibuff[4], NULL, 2);
-			gpiocontrol_setPin(&_msg, gpioa, 4, 1);
-			xdata = (int)(ibuff[1] * 256 + ibuff[0]);
-			ydata = (int)(ibuff[3] * 256 + ibuff[2]);
-			zdata = (int)(ibuff[5] * 256 + ibuff[4]);
-			printf("Read LSM6DS3 data: x= %5d\ty=%5d\tz=%5d\n", xdata, ydata, zdata);
-			usleep(100000);
-		}
+		mutexCreate(&lock);
+		beginthread(accread_readData, 4, readingDataStack, stacksz, (void *)&var);
+		beginthread(accread_getKey, 4, gettingKeyStack, stacksz, (void *)&var);
+
+		j = 0;
+		do {
+			j++;
+			isRead = 1;
+			mutexLock(lock);
+			for (int sampleNr = read_samples - 1; (sampleNr >= 0 && sampleNr >= (read_samples - atoi(argv[1]))); sampleNr--) {
+				i = sampleNr * 6;
+				xdata = (int)(ibuff[i + 1] * 256 + ibuff[i]);
+				ydata = (int)(ibuff[i + 3] * 256 + ibuff[i + 2]);
+				zdata = (int)(ibuff[i + 5] * 256 + ibuff[i + 4]);
+				printf("Read LSM6DS3 data: x= %5d\ty=%5d\tz=%5d\n", xdata, ydata, zdata);
+			}
+			printf("-----------------\n");
+			mutexUnlock(lock);
+			usleep(1000000);
+		} while (flagQuit != 1 && j < 10);
 	}
+
+	accread_switchmode(1);
 
 	return 0;
 }
