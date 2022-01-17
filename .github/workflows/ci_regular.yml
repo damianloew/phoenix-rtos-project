@@ -1,5 +1,6 @@
 # vim:sw=2:ts=2
-name: ci
+
+name: ci_regular
 
 # on events
 on:
@@ -92,6 +93,7 @@ jobs:
         uses: ./.github/actions/phoenix-runner
         with:
           target: ${{ matrix.target }}
+          long_test: ''
 
   test-hw:
     needs: build
