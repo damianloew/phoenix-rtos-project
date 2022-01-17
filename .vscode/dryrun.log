@@ -1,0 +1,6 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory '/home/dloew/long_tests/busybox/new/phoenix-rtos-project'
+make: Leaving directory '/home/dloew/long_tests/busybox/new/phoenix-rtos-project'
+ 
+make: *** No targets specified and no makefile found.  Stop.
+ 
