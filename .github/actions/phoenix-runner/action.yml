@@ -12,7 +12,7 @@ inputs:
     required: false
   long_test:
     description: 'If specified long tests are run too'
-    default: ''
+    default: 'False'
     required: false
 
 # action runner
@@ -21,7 +21,8 @@ runs:
   image: 'phoenixrtos/devel'
   entrypoint: ./phoenix-rtos-tests/runner.py
   args:
-    - '-T${{ inputs.target }}${{ inputs.long_test }}'
+    - '-T${{ inputs.target }}'
+    - '--long-test ${{ inputs.long_test }}'
 
 # branding
 branding:
