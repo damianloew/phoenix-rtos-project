@@ -10,7 +10,10 @@ inputs:
     description: 'Specifies target to run tests'
     default: 'ia32-generic'
     required: false
-
+  long_test:
+    description: 'If specified long tests are run too'
+    default: ''
+    required: false
 
 # action runner
 runs:
@@ -19,6 +22,7 @@ runs:
   entrypoint: ./phoenix-rtos-tests/runner.py
   args:
     - '-T${{ inputs.target }}'
+    - '${{ inputs.long_test }}'
 
 
 # branding
