@@ -93,6 +93,7 @@ jobs:
         uses: ./.github/actions/phoenix-runner
         with:
           target: ${{ matrix.target }}
+          long_test: ''
 
   test-hw:
     needs: build

@@ -3,15 +3,7 @@ name: ci_night
 # on events
 on:
   schedule:
-    - cron: '1/16 * * * *'
-  # push:
-  #   branches:
-  #     - master
-  #     - 'feature/*'
-  # pull_request:
-  #   branches:
-  #     - master
-  #     - 'feature/*'
+    - cron: '0/15 11 * * 1-5'
 
 # jobs
 jobs:
@@ -22,7 +14,8 @@ jobs:
       build_result: ${{ steps.build.outcome }}
     strategy:
       matrix:
-        target: ['ia32-generic'] #'armv7a7-imx6ull', 'armv7a9-zynq7000', 'armv7m7-imxrt106x', 'armv7m7-imxrt117x', 'armv7m4-stm32l4x6', 'host-pc', 'ia32-generic', 'riscv64-spike', 'riscv64-virt']
+        target: ['host-pc', 'ia32-generic'] #'armv7a7-imx6ull', 'armv7a9-zynq7000', 'armv7m7-imxrt106x', 'armv7m7-imxrt117x', 'armv7m4-stm32l4x6', 'host-pc', 'ia32-generic', 'riscv64-spike', 'riscv64-virt']
+
         include:
           - target: 'ia32-generic'
             syspage: 'psh pc-ata uart16550'
@@ -46,11 +39,6 @@ jobs:
           syspage: ${{ matrix.syspage }}
           long_test: ${{ matrix.long_test }}
           param1: 'all'
-          # param2: 'fs'
-          # param3: 'test'
-          # param4: 'ports'
-          # param5: 'project'
-          # param6: 'image'
 
       # step 3: tar rootfs
       - name: Tar rootfs
