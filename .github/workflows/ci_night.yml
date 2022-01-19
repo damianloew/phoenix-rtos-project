@@ -3,7 +3,7 @@ name: ci_night
 # on events
 on:
   schedule:
-    - cron: '55 8 * * 1,2,3,4,5'
+    - cron: '1/16 * * * *'
   # push:
   #   branches:
   #     - master
