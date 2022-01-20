@@ -21,9 +21,7 @@ runs:
   image: 'phoenixrtos/devel'
   entrypoint: ./phoenix-rtos-tests/runner.py
   args:
-    - '-T${{ inputs.target }}'
-    - '${{ inputs.long_test }}'
-
+    - '-T${{ inputs.target }}${{ inputs.long_test }}'
 
 # branding
 branding:
