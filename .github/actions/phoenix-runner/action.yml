@@ -22,7 +22,10 @@ runs:
   entrypoint: ./phoenix-rtos-tests/runner.py
   args:
     - '-T${{ inputs.target }}'
-    - '--long-test ${{ inputs.long_test }}'
+    # "--long-test" "True" enables long tests
+    # "--long-test" "" disables long tests - default
+    - '--long-test' 
+    - '${{ inputs.long_test }}'
 
 # branding
 branding:
