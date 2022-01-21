@@ -1,16 +1,13 @@
 # vim:sw=2:ts=2
-name: ci
+# similar workflow to ci_regular
+# FIXME: common parts should be limited after reusable workflows implementation
+name: ci_night
 
 # on events
 on:
-  push:
-    branches:
-      - master
-      - 'feature/*'
-  pull_request:
-    branches:
-      - master
-      - 'feature/*'
+  schedule:
+    # triggered every day at 5:00 UTC
+    - cron: '0 5 * * *'
 
 # jobs
 jobs:
@@ -25,6 +22,7 @@ jobs:
         include:
           - target: 'ia32-generic'
             syspage: 'psh pc-ata uart16550'
+            long_test: 'y'
     steps:
       # step 1: checkout repository code inside the workspace directory of the runner
       - name: Checkout the repository
@@ -42,11 +40,8 @@ jobs:
         with:
           target: ${{ matrix.target }}
           syspage: ${{ matrix.syspage }}
-          param1: 'core'
-          param2: 'fs'
-          param3: 'test'
-          param4: 'project'
-          param5: 'image'
+          long_test: ${{ matrix.long_test }}
+          param1: 'all'
 
       # step 3: tar rootfs
       - name: Tar rootfs
@@ -61,7 +56,6 @@ jobs:
           path: |
             _boot
             rootfs-${{ matrix.target }}.tar
-
   test-emu:
     needs: build
     name: run tests on emulators
@@ -92,6 +86,7 @@ jobs:
         uses: ./.github/actions/phoenix-runner
         with:
           target: ${{ matrix.target }}
+          long_test: 'True'
 
   test-hw:
     needs: build
@@ -122,7 +117,6 @@ jobs:
         id: runner
         run: |
           python3 ./phoenix-rtos-tests/runner.py -T${{ matrix.target }}
-
   mail-notification:
     if: ${{ failure() }}
     needs: ['build', 'test-emu', 'test-hw']
