@@ -13,12 +13,17 @@
  * %LICENSE%
  */
 
-#include <stdio.h>
+// #include <stdio.h>
 
 
 int main(void)
 {
-	printf("Hello World!!\n");
+	volatile unsigned int *dirset = 0x50842518;
+	volatile unsigned int *outset = 0x50842508;
+	*dirset = 1u << 2;
+	*outset = 1u << 2;
+	while(1) {;}
+	// printf("Hello World!!\n");
 
 	return 0;
 }

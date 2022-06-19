@@ -54,7 +54,7 @@ MAGIC_USER_SCRIPT=$((0xdabaabad)) #$((0xffffffff)) #$((0xdabaabad))
 # Pre-init script is launched before user script
 PREINIT_SCRIPT=(
 	"echo on"
-	"map flash0 0x00000000 0x00FF0000 rx"
+	"map flash0 0x00000000 0x00100000 rx"
 	"map ram0 0x20000000 0x20040000 rwx"
 	"phfs flash0 2.0 raw"
 	"phfs uart1 0.1 phoenixd"
@@ -64,9 +64,11 @@ PREINIT_SCRIPT=(
 # Production user script contains applications to run Phoenix-RTOS
 USER_SCRIPT=(
 	"kernelimg ${BOOT_DEVICE}"
-	"wait 2000"
+	"app ${BOOT_DEVICE} -x led_on flash0 ram0"
+	"wait 500"
 	"go!")
 
+	#	"app ${BOOT_DEVICE} -x led_on flash0 ram0"
 	# "app ${BOOT_DEVICE} -x stm32l4-multi flash0 ram"
 	# "app ${BOOT_DEVICE} -x psh flash0 ram"
 
@@ -81,7 +83,7 @@ REMOTE_USER_SCRIPT=("5a5aa5a5")
 
 b_build_project() {
 	b_log "Building user applications"
-	# make -C "_user" all install
+	make -C "_user" all install
 }
 
 
