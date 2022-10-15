@@ -11,7 +11,7 @@
 
 CROSS=arm-phoenix-
 
-export BOARD_CONFIG=" -DUART_CONSOLE=2 -DTTY2=1 "
+export BOARD_CONFIG=" -DUART_CONSOLE=0 -DTTY0=1 "
 
 export BUSYBOX_CONFIG=$(realpath "busybox_config")
 export DROPBEAR_CUSTOM_CFLAGS="-DLTC_NO_BSWAP"
@@ -37,9 +37,7 @@ export PORTS_CURL=n
 #
 SIZE_PAGE=$((0x200))
 PAGE_MASK=$((0xfffffe00))
-# ram4 start
-KERNEL_OFFS=$((0xd000)) #it's not in ram its in diskmaybe it should be same as on stm, because its offs in disk ??
-# was 20000
+KERNEL_OFFS=$((0xd000))
 
 #
 # Project specific build
@@ -48,7 +46,7 @@ KERNEL_OFFS=$((0xd000)) #it's not in ram its in diskmaybe it should be same as o
 BOOT_DEVICE="flash0"
 NAME_USER_SCRIPT="user.plo"
 OFFS_USER_SCRIPT=$((0xc800))
-MAGIC_USER_SCRIPT=$((0xdabaabad)) #$((0xffffffff)) #$((0xdabaabad))
+MAGIC_USER_SCRIPT=$((0xdabaabad))
 
 
 # Pre-init script is launched before user script
@@ -64,13 +62,11 @@ PREINIT_SCRIPT=(
 # Production user script contains applications to run Phoenix-RTOS
 USER_SCRIPT=(
 	"kernelimg ${BOOT_DEVICE}"
-	"app ${BOOT_DEVICE} -x led_on flash0 ram0"
+	"app ${BOOT_DEVICE} -x nrf91-multi flash0 ram0"
+	"app ${BOOT_DEVICE} -x psh flash0 ram0"
+	"app ${BOOT_DEVICE} test_thread_rand flash0 ram0"
 	"wait 500"
 	"go!")
-
-	#	"app ${BOOT_DEVICE} -x led_on flash0 ram0"
-	# "app ${BOOT_DEVICE} -x stm32l4-multi flash0 ram"
-	# "app ${BOOT_DEVICE} -x psh flash0 ram"
 
 # Example of user dev script which call remotely script
 DEV_USER_SCRIPT=(
@@ -106,5 +102,6 @@ b_image_target() {
 }
 
 b_test_target() {
-	:
+	b_log "Build and install tests in the phoenix-rtos filesystem"
+	make -C "phoenix-rtos-tests" all install
 }
